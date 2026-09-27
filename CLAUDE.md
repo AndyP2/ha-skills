@@ -96,6 +96,10 @@ while the prose beside it goes stale, so a row can point at the right file and s
 an older version of it.
 
 To run the eval suite, use `claude plugin eval . --trust-plugin -j 4 --judge-model sonnet`.
+Every case pins `execution.model: sonnet`, and `check_eval_cases.py` accepts only Sonnet or
+Haiku: unpinned, a case runs on the session's model, and Opus costs more and can hide what the
+skill adds. Run a second pass with `--model haiku`, which overrides the pin; the skill has to
+work on small models too, and a larger model can cover a gap in the skill that Haiku shows.
 Sessions run one at a time by default; `-j 4` runs four at once on the same rate limit. The
 default Haiku judge fails correct answers often enough to swamp run-to-run noise. A full run is
 every case x 3 runs x 2 arms (with and without the skill), so start with `--tag smoke --runs 1
@@ -115,9 +119,20 @@ Writing a case:
 - Prefer a positive regex (the new key is present) over `not_contains` on the old one: the skill
   tells agents to cite an old name beside the new one ("named add-ons before 2026.2"), and a
   negative check fails that.
+- Check structure with a regex and keep the llm judge for meaning. The Sonnet judge failed
+  correct YAML in four graders (a `motion.detected` trigger line, a `floor_id` target); a
+  regex on the key line cannot misread it.
 - To run several cases together, give them a tag: a repeated `--case` keeps only the last one.
 - Read both arms. A case that scores lower with the skill than without means the skill teaches
   something wrong; the `vacuum.clean_area` example once did.
+
+Cases tagged `holdout` check that a skill fix generalizes: each tests a fixed behavior in a
+scenario no fix was written from, and also fails the fix applied where it does not belong.
+Read their answers only to check the graders and to score, never to design a fix; if one
+exposes a gap, confirm the fix on a new case, not the same one. Change a holdout grader only
+with source evidence that it is wrong, never because of which arm it helps. The five cases
+held out in the first hillclimb (timer, button-event, media-player, template-attributes,
+avg-temperature) were used for tuning since and are no longer a test set.
 
 After each Home Assistant release, run the cases tagged `version-pinned` (`--tag
 version-pinned`, keeping `--judge-model sonnet` for `arrive-home-automation`'s llm graders) and

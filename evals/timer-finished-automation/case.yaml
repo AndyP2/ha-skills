@@ -6,8 +6,11 @@ description: >
 tags: [automations, triggers]
 
 execution:
-  prompt: make an automation that announces on my speaker when my kitchen timer finishes
+  prompt: >-
+    make a Home Assistant automation that announces on
+    media_player.kitchen_speaker when timer.kitchen finishes
   allowed_tools: [Read, Glob, Grep]
+  model: sonnet
   max_turns: 10
   timeout_seconds: 300
 runs: 3
@@ -19,12 +22,15 @@ graders:
     input_match: '"skill"\s*:\s*"(?:[\w-]+:)?home-assistant-best-practices"'
     min: 1
 
-  - type: llm
+  # Free: the purpose-specific `timer.finished` trigger, or an event trigger
+  # with `event_type: timer.finished` within the same trigger (200 characters),
+  # so a warning or unused example that names the event does not count. The
+  # Sonnet judge failed an answer whose config had `trigger: timer.finished`.
+  - type: regex
     name: uses-timer-finished-event
-    criteria: >-
-      The automation triggers on the `timer.finished` event — an event trigger with
-      `event_type: timer.finished` — or on a purpose-specific timer trigger that
-      fires on completion.
+    pattern: '^\s*-\s*(?:trigger|platform):\s*timer\.finished\b|^\s*-\s*(?:trigger|platform):\s*event\b[\s\S]{0,200}?\bevent_type"?\s*:\s*"?timer\.finished\b'
+    flags: m
+    match: contains
 
   - type: llm
     name: no-polling-workaround

@@ -7,9 +7,10 @@ tags: [automations]
 
 execution:
   prompt: >-
-    automation: when the hallway motion sensor trips, turn on the hallway light and
-    switch it off 5 minutes after motion stops
+    Home Assistant automation: when binary_sensor.hallway_motion trips, turn on
+    light.hallway and switch it off 5 minutes after motion stops
   allowed_tools: [Read, Glob, Grep]
+  model: sonnet
   max_turns: 10
   timeout_seconds: 300
 runs: 3
@@ -29,12 +30,15 @@ graders:
     flags: mi
     match: contains
 
-  - type: llm
+  # Free and exact: the trigger type is one YAML line. The Sonnet judge failed
+  # answers whose config had exactly this line. HA still loads the pre-2024.10
+  # `platform:` key as `trigger:`. Only `detected` turns the light on; a
+  # `motion.cleared` line alone can be the wait, not the trigger.
+  - type: regex
     name: prefers-purpose-specific-trigger
-    criteria: >-
-      The trigger is a purpose-specific motion trigger (optionally with an area
-      target) rather than a generic `trigger: state` block on a single
-      `binary_sensor` entity.
+    pattern: '^\s*-\s*(?:trigger|platform):\s*(motion|occupancy)\.detected\b'
+    flags: m
+    match: contains
 
   - type: llm
     name: delay-starts-after-motion-clears
