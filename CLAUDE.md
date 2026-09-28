@@ -112,6 +112,13 @@ Read, Glob and Grep are denied unless a case grants them in `allowed_tools`, and
 only SKILL.md loads, so no change to `references/` can move a score. Every case grants exactly
 those three, and `check_eval_cases.py` enforces it.
 
+The results JSON records only aliases: each case's `sonnet` pin, `--model` and `--judge-model`.
+An alias moves to a newer model on a release, so two results files with the same alias can
+come from different models. `python scripts/eval_models.py <results.json>` prints the model
+IDs the runs used, read from their transcripts, so it needs a `--keep-temp` run and exits 1
+when a transcript is missing. The judge's model is recorded nowhere. Compare two results files
+only when they show the same model IDs; after a release, rerun `main` as the new baseline.
+
 Writing a case:
 - Regex graders read only the final message (`last_message`), so text the skill loads cannot
   satisfy them, but a closing question scores zero. Put in the prompt whatever the agent would
