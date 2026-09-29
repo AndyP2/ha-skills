@@ -23,7 +23,7 @@ description: >
   - Existing state changed with no recovery path
   - Jinja copy-pasted between templates
 metadata:
-  version: "43"
+  version: "44"
 ---
 
 # Home Assistant Best Practices
