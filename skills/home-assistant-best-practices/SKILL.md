@@ -18,7 +18,7 @@ description: >
   - Wrong automation mode chosen
   - Raw sensor or hard-coded value used where a helper belongs
   - Direct .storage edits, or generated YAML snippets
-  - Automations assumed stored under `.storage/`
+  - Automations assumed stored under .storage/
   - User told to edit configuration.yaml for UI integrations
   - Hardcoded Blueprint entities or skipped selectors
   - Existing state changed with no recovery path
