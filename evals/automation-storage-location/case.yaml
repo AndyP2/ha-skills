@@ -1,0 +1,47 @@
+schema_version: "1.1"
+name: automation-storage-location
+description: >
+  Asks where an automation is stored once it exists, to catch the hallucination of
+  automations living under a Home Assistant `.storage/` file — conflating storage-mode
+  domains with YAML-config automations. The correct answer treats automations as YAML
+  mode and names `automations.yaml` (or confirms the configured automation source)
+  rather than inventing a `.storage/` path.
+tags: [automations]
+
+execution:
+  prompt: >-
+    Home Assistant in YAML config mode: when binary_sensor.porch_motion detects
+    motion, turn on light.porch_light. Once this automation exists, where is it
+    stored, and which file do I open to add or edit automations like this one?
+  allowed_tools: [Read, Glob, Grep]
+  model: haiku
+  max_turns: 10
+  timeout_seconds: 300
+runs: 3
+
+graders:
+  - type: tool_used
+    name: skill-fired
+    tool: Skill
+    input_match: '"skill"\s*:\s*"(?:[\w-]+:)?home-assistant-best-practices"'
+    min: 1
+
+  # Free and exact: the YAML automation file is one concrete token. A model that
+  # still asserts a `.storage/` path never names it, so this separates the two arms.
+  - type: regex
+    name: names-automations-yaml
+    pattern: '\bautomations\.yaml\b'
+    match: contains
+
+  # Free alternative: an affirmative that automations live in YAML mode passes a
+  # correct answer even when it defers to the configured source first (line 125),
+  # and cannot be satisfied by a `.storage/` hallucination, which never asserts YAML.
+  - type: regex
+    name: affirms-yaml-storage
+    pattern: 'automations?\s+are\s+(?:stored|live)\s+in\s+YAML|stored in YAML|\byaml mode\b'
+    match: contains
+
+expected_outcome: >-
+  Stored in YAML config mode — the file `automations.yaml` (or, before any write that
+  names it, confirm the configured `automation:` source includes it). Not under any
+  `.storage/` file.
