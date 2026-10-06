@@ -17,7 +17,7 @@ the correct truth value for both `contains` and `not_contains` graders, so nothi
 is flipped.
 
 Usage: python scripts/summarise_runs.py <case> [--out evals/results] \
-    [--label baseline,post] [--model <substr>]
+     [--label baseline,post] [--model <substr>]
 """
 import glob
 import json
@@ -26,81 +26,81 @@ import sys
 from collections import defaultdict
 
 
-def summarise(case, out, labels=None, model_sub=None):
+def summarise(case, out, labels=None, model_filter=None):
     """Group the case's runs by label and print per-label ingestion/score stats."""
     found = {}
-    for f in sorted(glob.glob(os.path.join(out, f"{case}-*-r*.json"))):
+    for file_path in sorted(glob.glob(os.path.join(out, f"{case}-*-r*.json"))):
         try:
-            d = json.load(open(f, encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as e:
-            print(f"  skip {os.path.basename(f)}: {e}")
+            record = json.load(open(file_path, encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            print(f"  skip {os.path.basename(file_path)}: {error}")
             continue
-        lab = d.get("label")
-        if not lab or (labels and lab not in labels):
+        run_label = record.get("label")
+        if not run_label or (labels and run_label not in labels):
             continue
-        model = d.get("model") or ""
-        if model_sub and model_sub not in model:
+        model = record.get("model") or ""
+        if model_filter and model_filter not in model:
             continue
-        found.setdefault(lab, []).append(d)
+        found.setdefault(run_label, []).append(record)
 
     if not found:
         print(f"no runs for case {case!r} in {out}")
         return
 
-    for lab in sorted(found):
-        rs = found[lab]
-        n = len(rs)
-        loaded = sum(1 for r in rs if r.get("reads"))
-        rr = loaded / n if n else float("nan")
-        mean = sum(r.get("score", 0) for r in rs) / n if n else float("nan")
+    for run_label in sorted(found):
+        runs = found[run_label]
+        run_count = len(runs)
+        loaded = sum(1 for run in runs if run.get("reads"))
+        reads_rate = loaded / run_count if run_count else float("nan")
+        mean_score = sum(run.get("score", 0) for run in runs) / run_count if run_count else float("nan")
         grades = defaultdict(lambda: [0, 0])
-        for r in rs:
-            for k, v in (r.get("graders") or {}).items():
-                grades[k][0] += 1 if v else 0
-                grades[k][1] += 1
-        errs = sorted({r.get("error") for r in rs if r.get("error")})
-        model_seen = next((r.get("model") for r in rs if r.get("model")), "?")
-        print(f"=== {lab}   runs={n}   model={model_seen}")
-        print(f"   reads_rate(SKILL loaded) = {loaded}/{n} = {rr:.3f}" if n else "   (no runs)")
-        print(f"   mean score = {mean:.3f}   scores={[round(r.get('score', 0), 2) for r in rs]}" if n else "")
-        for k, (p, t) in sorted(grades.items()):
-            print(f"     {k}: {p}/{t} pass = {(p / t if t else 0):.3f}")
-        if errs:
-            print("   ERRORS:", set(errs))
+        for run in runs:
+            for grader_name, verdict in (run.get("graders") or {}).items():
+                grades[grader_name][0] += 1 if verdict else 0
+                grades[grader_name][1] += 1
+        errors = sorted({run.get("error") for run in runs if run.get("error")})
+        model_seen = next((run.get("model") for run in runs if run.get("model")), "?")
+        print(f"=== {run_label}   runs={run_count}   model={model_seen}")
+        print(f"   reads_rate(SKILL loaded) = {loaded}/{run_count} = {reads_rate:.3f}" if run_count else "   (no runs)")
+        print(f"   mean score = {mean_score:.3f}   scores={[round(run.get('score', 0), 2) for run in runs]}" if run_count else "")
+        for grader_name, (pass_count, total_count) in sorted(grades.items()):
+            print(f"     {grader_name}: {pass_count}/{total_count} pass = {(pass_count / total_count if total_count else 0):.3f}")
+        if errors:
+            print("   ERRORS:", set(errors))
 
 
 def main() -> int:
     """Parse argv into <case> + optional filters and run the summarisation."""
-    args = sys.argv[1:]
-    if not args:
+    arguments = sys.argv[1:]
+    if not arguments:
         sys.exit("usage: python scripts/summarise_runs.py <case> [--out DIR] "
                  "[--label baseline,post] [--model SUBSTR]")
-    case = args[0]
-    out = os.environ.get("LOCAL_MODEL_OUT", "evals/results")
+    case = arguments[0]
+    results_dir = os.environ.get("LOCAL_MODEL_OUT", "evals/results")
     labels = None
-    model_sub = None
-    i = 1
-    while i < len(args):
-        arg = args[i]
-        if "=" in arg:
-            key, val = arg.split("=", 1)
-            i += 1
-        elif arg in ("--out", "--label", "--model"):
-            if i + 1 >= len(args):
-                sys.exit(f"{arg} requires a value")
-            key, val = arg, args[i + 1]
-            i += 2
+    model_filter = None
+    index = 1
+    while index < len(arguments):
+        argument = arguments[index]
+        if "=" in argument:
+            key, value = argument.split("=", 1)
+            index += 1
+        elif argument in ("--out", "--label", "--model"):
+            if index + 1 >= len(arguments):
+                sys.exit(f"{argument} requires a value")
+            key, value = argument, arguments[index + 1]
+            index += 2
         else:
-            sys.exit(f"unknown argument {arg!r}; "
+            sys.exit(f"unknown argument {argument!r}; "
                      f"usage: python scripts/summarise_runs.py <case> [--out DIR] "
                      f"[--label baseline,post] [--model SUBSTR]")
         if key == "--out":
-            out = val
+            results_dir = value
         elif key == "--label":
-            labels = (labels or []) + [lab for lab in val.split(",") if lab]
+            labels = (labels or []) + [run_label for run_label in value.split(",") if run_label]
         elif key == "--model":
-            model_sub = val
-    summarise(case, out, labels, model_sub)
+            model_filter = value
+    summarise(case, results_dir, labels, model_filter)
     return 0
 
 
