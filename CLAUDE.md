@@ -179,6 +179,7 @@ uv run --no-project --with pyyaml python scripts/local_model_eval.py --model <mo
   --all-regex --runs 3 --out evals/results/<name>
 ```
 
+`scripts/build_skill_variant.py` makes one isolated single-line variant of a SKILL.md for an A/B arm: it applies exactly one add/edit/remove anchored on content (never an absolute line number, which drifts as the file changes), writes it to `<out>/<variant-name>/SKILL.md`, and refuses to proceed unless difflib shows the result is a single contiguous hunk — one insertion, deletion, or replacement — so the measured delta can be attributed to that line alone. It parses the variant's frontmatter with PyYAML and hard-fails if the `description` exceeds the 1024-char spec cap (every compliant runtime enforces it) rather than writing a skill that will fail to load. Anchor on content, give each arm a distinct label so the two runs do not collide, and use ≥6 runs — low counts are noisy.
 ## Reviewing Skill PRs
 
 - Judge prose as agent-consumed context, not human docs — the Skill Authoring Principles above are the review bar (e.g. an operator→result lookup table beats narrative bullets, because agents land here holding one case to resolve)
