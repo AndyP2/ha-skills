@@ -48,10 +48,10 @@ DESCRIPTION_CAP = 1024
 def anchor_lines(lines, text, as_regex):
     """Indices of lines whose content contains `text` (or matches it as regex)."""
     hit = []
-    for i, line in enumerate(lines):
+    for index, line in enumerate(lines):
         body = re.sub(r"[\r\n]+$", "", line)
         if (re.search(text, body) if as_regex else text in body):
-            hit.append(i)
+            hit.append(index)
     return hit
 
 
@@ -62,22 +62,22 @@ def apply_edit(base_text, mode, anchor, replacement, as_regex):
     if not hit:
         sys.exit(f"anchor {anchor!r} matched no line in the base file")
     if len(hit) > 1:
-        shown = ", ".join(str(i + 1) for i in hit)
+        shown = ", ".join(str(index + 1) for index in hit)
         sys.exit(f"anchor {anchor!r} matched {len(hit)} lines ({shown}); make it "
                  "more specific or drop --regex")
-    i = hit[0]
+    index = hit[0]
     if mode == "remove":
-        return "".join(line for j, line in enumerate(lines) if j != i)
+        return "".join(line for other_index, line in enumerate(lines) if other_index != index)
     if mode == "edit":
         if not replacement:
             sys.exit("--replace text is required for --mode edit")
-        lines[i] = replacement + lines[i][len(lines[i].rstrip("\r\n")):]
+        lines[index] = replacement + lines[index][len(lines[index].rstrip("\r\n")):]
         return "".join(lines)
     if mode == "add":
         if not replacement:
             sys.exit("--insert text is required for --mode add")
-        term = lines[i][len(lines[i].rstrip("\r\n")):]
-        return "".join(lines[:i + 1] + [replacement + term] + lines[i + 1:])
+        line_ending = lines[index][len(lines[index].rstrip("\r\n")):]
+        return "".join(lines[:index + 1] + [replacement + line_ending] + lines[index + 1:])
     sys.exit(f"unknown mode {mode!r} (use edit, remove, or add)")
 
 
@@ -92,11 +92,11 @@ def one_hunk_gate(base_text, variant_text):
         base_text.splitlines(keepends=True),
         variant_text.splitlines(keepends=True),
         fromfile="base", tofile="variant", lineterm=""))
-    changed = [d for d in diff
-               if d[:1] in ("+", "-") and not d.startswith(("+++", "---"))]
-    removed = sum(d.startswith("-") for d in changed)
-    added = sum(d.startswith("+") for d in changed)
-    hunks = sum(1 for d in diff if d.startswith("@@"))
+    changed = [diff_line for diff_line in diff
+               if diff_line[:1] in ("+", "-") and not diff_line.startswith(("+++", "---"))]
+    removed = sum(diff_line.startswith("-") for diff_line in changed)
+    added = sum(diff_line.startswith("+") for diff_line in changed)
+    hunks = sum(1 for diff_line in diff if diff_line.startswith("@@"))
     ok = hunks == 1 and (removed + added) >= 1 and removed <= 1 and added <= 1
     return ok, diff, removed, added
 
@@ -106,56 +106,58 @@ def description_length(skill_text):
     parts = skill_text.split("---", 2)
     if len(parts) < 3:
         return None
-    fm = yaml.safe_load(parts[1]) or {}
-    desc = fm.get("description")
-    return len(desc.strip()) if isinstance(desc, str) else None
+    frontmatter = yaml.safe_load(parts[1]) or {}
+    description = frontmatter.get("description")
+    return len(description.strip()) if isinstance(description, str) else None
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--base", type=Path, default=DEFAULT_BASE,
-                   help="base SKILL.md (default: the repo's home-assistant skill)")
-    p.add_argument("--out", type=Path, default=REPO / "build-variants",
-                   help="output directory for <variant-name>/SKILL.md")
-    p.add_argument("--variant-name", required=True, help="dir name under --out")
-    p.add_argument("--mode", required=True, choices=("edit", "remove", "add"))
-    p.add_argument("--anchor", required=True,
-                   help="substring (or regex with --regex) the edit is anchored on")
-    p.add_argument("--replace", help="new line content for --mode edit")
-    p.add_argument("--insert", help="line to insert after the anchor for --mode add")
-    p.add_argument("--regex", action="store_true",
-                   help="treat --anchor as a regular expression, not a substring")
-    p.add_argument("--cap", type=int, default=DESCRIPTION_CAP,
-                   help="description frontmatter cap in chars (default: 1024)")
-    return p.parse_args()
+    """Parse the command-line arguments into a namespace."""
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--base", type=Path, default=DEFAULT_BASE,
+                        help="base SKILL.md (default: the repo's home-assistant skill)")
+    parser.add_argument("--out", type=Path, default=REPO / "build-variants",
+                        help="output directory for <variant-name>/SKILL.md")
+    parser.add_argument("--variant-name", required=True, help="dir name under --out")
+    parser.add_argument("--mode", required=True, choices=("edit", "remove", "add"))
+    parser.add_argument("--anchor", required=True,
+                        help="substring (or regex with --regex) the edit is anchored on")
+    parser.add_argument("--replace", help="new line content for --mode edit")
+    parser.add_argument("--insert", help="line to insert after the anchor for --mode add")
+    parser.add_argument("--regex", action="store_true",
+                        help="treat --anchor as a regular expression, not a substring")
+    parser.add_argument("--cap", type=int, default=DESCRIPTION_CAP,
+                        help="description frontmatter cap in chars (default: 1024)")
+    return parser.parse_args()
 
 
 def main() -> int:
-    a = parse_args()
-    if not a.base.is_file():
-        sys.exit(f"base file not found: {a.base}")
-    base_text = a.base.read_text(encoding="utf-8")
-    variant_text = apply_edit(base_text, a.mode, a.anchor,
-                              a.replace if a.mode == "edit" else a.insert, a.regex)
+    """Apply the requested edit to the base SKILL.md and verify it before writing."""
+    args = parse_args()
+    if not args.base.is_file():
+        sys.exit(f"base file not found: {args.base}")
+    base_text = args.base.read_text(encoding="utf-8")
+    variant_text = apply_edit(base_text, args.mode, args.anchor,
+                              args.replace if args.mode == "edit" else args.insert, args.regex)
 
     ok, diff, removed, added = one_hunk_gate(base_text, variant_text)
     print("=== unified diff (base -> variant) ===")
     sys.stdout.write("".join(diff) + "\n")
     if not ok:
         sys.exit(f"gate FAILED: the variant is not a single isolated edit "
-                  f"(hunks={sum(1 for d in diff if d.startswith('@@'))}, "
-                  f"removed={removed}, added={added}); aborting before any run")
+                 f"(hunks={sum(1 for diff_line in diff if diff_line.startswith('@@'))}, "
+                 f"removed={removed}, added={added}); aborting before any run")
 
     cap = description_length(variant_text)
     if cap is None:
         print("budget: no parseable frontmatter `description`; skipped")
-    elif cap <= a.cap:
-        print(f"budget: description = {cap} chars (cap {a.cap}) [OK]")
+    elif cap <= args.cap:
+        print(f"budget: description = {cap} chars (cap {args.cap}) [OK]")
     else:
         sys.exit(f"gate FAILED: description = {cap} chars exceeds the "
-                 f"{a.cap}-char spec cap; aborting before writing so no over-budget variant is produced")
+                 f"{args.cap}-char spec cap; aborting before writing so no over-budget variant is produced")
 
-    out_dir = a.out / a.variant_name
+    out_dir = args.out / args.variant_name
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "SKILL.md").write_text(variant_text, encoding="utf-8")
 
