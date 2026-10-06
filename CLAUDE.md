@@ -179,6 +179,14 @@ uv run --no-project --with pyyaml python scripts/local_model_eval.py --model <mo
   --all-regex --runs 3 --out evals/results/<name>
 ```
 
+`scripts/summarise_runs.py` adds up those per-run files by label, which nothing else does:
+`local_model_eval.py` writes one JSON per run (`evals/results/<case>-<label>-r<n>.json`), so to
+compare two skill versions you need the mean across an arm's runs — its mean score and
+per-grader pass rate, plus the reads rate (the fraction of runs that actually loaded the skill,
+since a row cannot help a model that never loads it). Run one invocation with `--label
+baseline,post` to print both arms together and read the delta on both at once; there is no
+separate compare tool by design. It needs only the standard library and PyYAML.
+
 ## Reviewing Skill PRs
 
 - Judge prose as agent-consumed context, not human docs — the Skill Authoring Principles above are the review bar (e.g. an operator→result lookup table beats narrative bullets, because agents land here holding one case to resolve)
