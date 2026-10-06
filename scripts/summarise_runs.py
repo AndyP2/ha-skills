@@ -39,7 +39,7 @@ def summarise(case, out, labels=None, model_sub=None):
         if not lab or (labels and lab not in labels):
             continue
         model = d.get("model") or ""
-        if model_sub and not model.startswith(model_sub):
+        if model_sub and model_sub not in model:
             continue
         found.setdefault(lab, []).append(d)
 
@@ -70,6 +70,7 @@ def summarise(case, out, labels=None, model_sub=None):
 
 
 def main() -> int:
+    """Parse argv into <case> + optional filters and run the summarisation."""
     args = sys.argv[1:]
     if not args:
         sys.exit("usage: python scripts/summarise_runs.py <case> [--out DIR] "
@@ -90,12 +91,13 @@ def main() -> int:
             key, val = arg, args[i + 1]
             i += 2
         else:
-            i += 1
-            continue
+            sys.exit(f"unknown argument {arg!r}; "
+                     f"usage: python scripts/summarise_runs.py <case> [--out DIR] "
+                     f"[--label baseline,post] [--model SUBSTR]")
         if key == "--out":
             out = val
         elif key == "--label":
-            labels = (labels or []) + [l for l in val.split(",") if l]
+            labels = (labels or []) + [lab for lab in val.split(",") if lab]
         elif key == "--model":
             model_sub = val
     summarise(case, out, labels, model_sub)
