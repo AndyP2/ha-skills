@@ -34,14 +34,18 @@ graders:
     pattern: '\bautomations\.yaml\b'
     match: contains
 
-  # Free and specific: flags the hallucination this row targets — an answer that places
-  # a UI automation inside a concrete `.storage/<file>` path (e.g. asserting it persists
-  # to `.storage/core.automations.json`). The run after `/` excludes whitespace and
-  # quotes, so a correct answer that merely warns "not in any `.storage/` file" (the
-  # closing quote terminates the slash) is not failed; only a real storage-mode path does.
+  # Free and specific: flags exactly the hallucination this row targets — an answer that
+  # places automation config inside a `.storage/` path. The pattern matches only when the
+  # named file is automation-related (e.g. `.storage/core.automations.json`,
+  # `core.automation.json`, bare `automation.json`, `automations.yaml`), so it does NOT fail
+  # a correct answer that merely references `.storage/core.entity_registry.json` (the entity
+  # registry, not automation config) or warns "not in any `.storage/` file". The char class
+  # excludes whitespace and quotes, so a backtick-wrapped denial terminates the match. This
+  # narrows the previous `\.storage\/[^\s"`]{1,80}` (which failed every `.storage/<file>`
+  # mention) to automation-named files only, per PR #117 review #5431639599.
   - type: regex
     name: no-storage-json-hallucination
-    pattern: '\.storage\/[^\s"`]{1,80}'
+    pattern: '\.storage\/[^\s"`]*automation'
     match: not_contains
 
 expected_outcome: >-
