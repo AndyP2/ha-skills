@@ -49,8 +49,7 @@ def summarise(case, out, labels=None, model_filter=None):
         print(f"no runs for case {case!r} in {out}")
         return
 
-    for run_label in sorted(found):
-        runs = found[run_label]
+    def _emit(label, runs):
         run_count = len(runs)
         loaded = sum(1 for run in runs if "SKILL.md" in (run.get("reads") or []))
         reads_rate = loaded / run_count if run_count else float("nan")
@@ -62,13 +61,24 @@ def summarise(case, out, labels=None, model_filter=None):
                 grades[grader_name][1] += 1
         errors = sorted({run.get("error") for run in runs if run.get("error")})
         model_seen = next((run.get("model") for run in runs if run.get("model")), "?")
-        print(f"=== {run_label}   runs={run_count}   model={model_seen}")
+        print(f"=== {label}   runs={run_count}   model={model_seen}")
         print(f"   reads_rate(SKILL loaded) = {loaded}/{run_count} = {reads_rate:.3f}" if run_count else "   (no runs)")
         print(f"   mean score = {mean_score:.3f}   scores={[round(run.get('score', 0), 2) for run in runs]}" if run_count else "")
         for grader_name, (pass_count, total_count) in sorted(grades.items()):
             print(f"     {grader_name}: {pass_count}/{total_count} pass = {(pass_count / total_count if total_count else 0):.3f}")
         if errors:
             print("   ERRORS:", set(errors))
+
+    for run_label in sorted(found):
+        runs = found[run_label]
+        group_models = sorted({(run.get("model") or "<no-model>") for run in runs})
+        if len(group_models) == 1:
+            _emit(run_label, runs)
+        else:
+            print(f"=== {run_label}   {len(group_models)} models present:")
+            for model_name in group_models:
+                subset = [run for run in runs if (run.get("model") or "<no-model>") == model_name]
+                _emit(model_name, subset)
 
 
 def main() -> int:
@@ -99,9 +109,16 @@ def main() -> int:
         if key == "--out":
             results_dir = value
         elif key == "--label":
-            labels = (labels or []) + [run_label for run_label in value.split(",") if run_label]
+            chosen = [run_label for run_label in value.split(",") if run_label]
+            if not chosen:
+                sys.exit(f"{argument} requires at least one label")
+            labels = (labels or []) + chosen
         elif key == "--model":
             model_filter = value
+        else:
+            sys.exit(f"unknown option {key!r}; "
+                     f"usage: python scripts/summarise_runs.py <case> [--out DIR] "
+                     f"[--label baseline,post] [--model SUBSTR]")
     summarise(case, results_dir, labels, model_filter)
     return 0
 
