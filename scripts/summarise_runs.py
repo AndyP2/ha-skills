@@ -38,6 +38,8 @@ def summarise(case, out, labels=None, model_filter=None):
         run_label = record.get("label")
         if not run_label or (labels and run_label not in labels):
             continue
+        if record.get("case") != case:
+            continue
         model = record.get("model") or ""
         if model_filter and model_filter not in model:
             continue
@@ -50,7 +52,7 @@ def summarise(case, out, labels=None, model_filter=None):
     for run_label in sorted(found):
         runs = found[run_label]
         run_count = len(runs)
-        loaded = sum(1 for run in runs if run.get("reads"))
+        loaded = sum(1 for run in runs if "SKILL.md" in (run.get("reads") or []))
         reads_rate = loaded / run_count if run_count else float("nan")
         mean_score = sum(run.get("score", 0) for run in runs) / run_count if run_count else float("nan")
         grades = defaultdict(lambda: [0, 0])
