@@ -75,8 +75,12 @@ def apply_edit(base_text, mode, anchor, replacement):
     if mode == "add":
         if not replacement:
             sys.exit("--insert text is required for --mode add")
-        line_ending = lines[index][len(lines[index].rstrip("\r\n")):]
-        return "".join(lines[:index + 1] + [replacement + line_ending] + lines[index + 1:])
+        anchor_line = lines[index]
+        anchor_ending = anchor_line[len(anchor_line.rstrip("\r\n")):]
+        if index == len(lines) - 1 and not anchor_ending:
+            sys.exit(f"anchor {anchor!r} is the last line and has no line ending; "
+                     "add cannot insert cleanly")
+        return "".join(lines[:index + 1] + [replacement + anchor_ending] + lines[index + 1:])
     sys.exit(f"unknown mode {mode!r} (use edit, remove, or add)")
 
 
@@ -105,7 +109,10 @@ def description_length(skill_text):
     parts = skill_text.split("---", 2)
     if len(parts) < 3:
         return None
-    frontmatter = yaml.safe_load(parts[1]) or {}
+    try:
+        frontmatter = yaml.safe_load(parts[1]) or {}
+    except yaml.YAMLError:
+        return None
     description = frontmatter.get("description")
     return len(description.strip()) if isinstance(description, str) else None
 
@@ -131,7 +138,7 @@ def main() -> int:
     args = parse_args()
     if not args.base.is_file():
         sys.exit(f"base file not found: {args.base}")
-    base_text = args.base.read_text(encoding="utf-8")
+    base_text = args.base.read_text(encoding="utf-8", newline="")
     variant_text = apply_edit(base_text, args.mode, args.anchor,
                               args.replace if args.mode == "edit" else args.insert)
 
@@ -145,16 +152,22 @@ def main() -> int:
 
     desc_chars = description_length(variant_text)
     if desc_chars is None:
-        print("budget: no parseable frontmatter `description`; skipped")
+        sys.exit("gate FAILED: no parseable frontmatter `description`; aborting "
+                 "before writing so an unreadable variant is not produced")
     elif desc_chars <= DESCRIPTION_CAP:
         print(f"budget: description = {desc_chars} chars (cap {DESCRIPTION_CAP}) [OK]")
     else:
         sys.exit(f"gate FAILED: description = {desc_chars} chars exceeds the "
                  f"{DESCRIPTION_CAP}-char spec cap; aborting before writing so no over-budget variant is produced")
 
-    out_dir = args.out / args.variant_name
+    variant_path = Path(args.variant_name)
+    if (variant_path.is_absolute() or any(part in ("..", ".") for part in variant_path.parts)
+            or len(variant_path.parts) != 1):
+        sys.exit(f"--variant-name {args.variant_name!r} must be a single relative "
+                 "directory component; no absolute paths, '..' or path separators")
+    out_dir = args.out / variant_path
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "SKILL.md").write_text(variant_text, encoding="utf-8")
+    (out_dir / "SKILL.md").write_text(variant_text, encoding="utf-8", newline="")
 
     print(f"gate OK: exactly one hunk, {removed + added} content line(s) changed -> "
           f"{out_dir.as_posix()}/SKILL.md")
