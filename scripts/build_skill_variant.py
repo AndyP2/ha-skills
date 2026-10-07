@@ -25,11 +25,10 @@ parsed by a real YAML parser, not counted line-by-line as a regex would.
 Usage:
   python scripts/build_skill_variant.py [--base PATH] [--out DIR] \
       --variant-name NAME --mode {edit,remove,add} --anchor TEXT \
-      [--replace TEXT | --insert TEXT] [--regex] [--cap 1024]
+      [--replace TEXT | --insert TEXT] [--cap 1024]
 """
 import argparse
 import difflib
-import re
 import sys
 from pathlib import Path
 
@@ -45,26 +44,26 @@ DEFAULT_BASE = REPO / "skills" / "home-assistant-best-practices" / "SKILL.md"
 DESCRIPTION_CAP = 1024
 
 
-def anchor_lines(lines, text, as_regex):
-    """Indices of lines whose content contains `text` (or matches it as regex)."""
+def anchor_lines(lines, text):
+    """Indices of lines whose content contains `text`."""
     hit = []
     for index, line in enumerate(lines):
-        body = re.sub(r"[\r\n]+$", "", line)
-        if (re.search(text, body) if as_regex else text in body):
+        body = line.rstrip("\r\n")
+        if text in body:
             hit.append(index)
     return hit
 
 
-def apply_edit(base_text, mode, anchor, replacement, as_regex):
+def apply_edit(base_text, mode, anchor, replacement):
     """Return the variant text: one add/edit/remove anchored on content."""
     lines = base_text.splitlines(keepends=True)
-    hit = anchor_lines(lines, anchor, as_regex)
+    hit = anchor_lines(lines, anchor)
     if not hit:
         sys.exit(f"anchor {anchor!r} matched no line in the base file")
     if len(hit) > 1:
         shown = ", ".join(str(index + 1) for index in hit)
         sys.exit(f"anchor {anchor!r} matched {len(hit)} lines ({shown}); make it "
-                 "more specific or drop --regex")
+                 "more specific")
     index = hit[0]
     if mode == "remove":
         return "".join(line for other_index, line in enumerate(lines) if other_index != index)
@@ -121,11 +120,9 @@ def parse_args():
     parser.add_argument("--variant-name", required=True, help="dir name under --out")
     parser.add_argument("--mode", required=True, choices=("edit", "remove", "add"))
     parser.add_argument("--anchor", required=True,
-                        help="substring (or regex with --regex) the edit is anchored on")
+                        help="the substring the edit is anchored on")
     parser.add_argument("--replace", help="new line content for --mode edit")
     parser.add_argument("--insert", help="line to insert after the anchor for --mode add")
-    parser.add_argument("--regex", action="store_true",
-                        help="treat --anchor as a regular expression, not a substring")
     parser.add_argument("--cap", type=int, default=DESCRIPTION_CAP,
                         help="description frontmatter cap in chars (default: 1024)")
     return parser.parse_args()
@@ -138,7 +135,7 @@ def main() -> int:
         sys.exit(f"base file not found: {args.base}")
     base_text = args.base.read_text(encoding="utf-8")
     variant_text = apply_edit(base_text, args.mode, args.anchor,
-                              args.replace if args.mode == "edit" else args.insert, args.regex)
+                              args.replace if args.mode == "edit" else args.insert)
 
     ok, diff, removed, added = one_hunk_gate(base_text, variant_text)
     print("=== unified diff (base -> variant) ===")
