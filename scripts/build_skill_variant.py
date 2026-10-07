@@ -179,8 +179,11 @@ def main() -> int:
         sys.exit(f"--variant-name {args.variant_name!r} must be a single relative "
                  "directory component; no absolute paths, '..' or path separators")
     out_dir = args.out / variant_path
+    output_path = out_dir / "SKILL.md"
+    if output_path.resolve() == args.base.resolve():
+        sys.exit("refusing to overwrite --base with the variant output")
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "SKILL.md").write_text(variant_text, encoding="utf-8", newline="")
+    output_path.write_text(variant_text, encoding="utf-8", newline="")
 
     print(f"gate OK: exactly one hunk, {removed + added} content line(s) changed -> "
           f"{out_dir.as_posix()}/SKILL.md")
