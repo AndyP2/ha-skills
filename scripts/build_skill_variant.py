@@ -25,7 +25,7 @@ parsed by a real YAML parser, not counted line-by-line as a regex would.
 Usage:
   python scripts/build_skill_variant.py [--base PATH] [--out DIR] \
       --variant-name NAME --mode {edit,remove,add} --anchor TEXT \
-      [--replace TEXT | --insert TEXT] [--cap 1024]
+      [--replace TEXT | --insert TEXT]
 """
 import argparse
 import difflib
@@ -39,8 +39,8 @@ DEFAULT_BASE = REPO / "skills" / "home-assistant-best-practices" / "SKILL.md"
 
 # Public Agent Skills spec caps the frontmatter `description` at 1024 chars to bound
 # context-window use; every compliant runtime (Claude Code plugin, Codex, ...) enforces
-# it, so an over-budget skill would fail to load regardless of content quality. This is
-# the default for the --cap option below: if the spec ever moves, change this one number.
+# it, so an over-budget skill would fail to load regardless of content quality. If the
+# spec ever changes, update this single constant.
 DESCRIPTION_CAP = 1024
 
 
@@ -123,8 +123,6 @@ def parse_args():
                         help="the substring the edit is anchored on")
     parser.add_argument("--replace", help="new line content for --mode edit")
     parser.add_argument("--insert", help="line to insert after the anchor for --mode add")
-    parser.add_argument("--cap", type=int, default=DESCRIPTION_CAP,
-                        help="description frontmatter cap in chars (default: 1024)")
     return parser.parse_args()
 
 
@@ -145,14 +143,14 @@ def main() -> int:
                  f"(hunks={sum(1 for diff_line in diff if diff_line.startswith('@@'))}, "
                  f"removed={removed}, added={added}); aborting before any run")
 
-    cap = description_length(variant_text)
-    if cap is None:
+    desc_chars = description_length(variant_text)
+    if desc_chars is None:
         print("budget: no parseable frontmatter `description`; skipped")
-    elif cap <= args.cap:
-        print(f"budget: description = {cap} chars (cap {args.cap}) [OK]")
+    elif desc_chars <= DESCRIPTION_CAP:
+        print(f"budget: description = {desc_chars} chars (cap {DESCRIPTION_CAP}) [OK]")
     else:
-        sys.exit(f"gate FAILED: description = {cap} chars exceeds the "
-                 f"{args.cap}-char spec cap; aborting before writing so no over-budget variant is produced")
+        sys.exit(f"gate FAILED: description = {desc_chars} chars exceeds the "
+                 f"{DESCRIPTION_CAP}-char spec cap; aborting before writing so no over-budget variant is produced")
 
     out_dir = args.out / args.variant_name
     out_dir.mkdir(parents=True, exist_ok=True)
