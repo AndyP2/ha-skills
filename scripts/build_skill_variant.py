@@ -105,12 +105,25 @@ def one_hunk_gate(base_text, variant_text):
 
 
 def description_length(skill_text):
-    """Length of the parsed frontmatter `description` folded block scalar."""
-    parts = skill_text.split("---", 2)
-    if len(parts) < 3:
+    """Length of the parsed frontmatter `description` folded block scalar.
+
+    Frontmatter is delimited by whole lines whose content is exactly `---`. A
+    naive substring split on `---` would treat an indented `---` inside a folded
+    `description` as a delimiter and measure only a prefix, so scan for the
+    closing delimiter line and parse the block between the two delimiter lines.
+    """
+    lines = skill_text.splitlines(keepends=True)
+    if not lines or lines[0].rstrip("\r\n") != "---":
+        return None
+    closing = next(
+        (index for index, line in enumerate(lines[1:], 1)
+         if line.rstrip("\r\n") == "---"),
+        None,
+    )
+    if closing is None:
         return None
     try:
-        frontmatter = yaml.safe_load(parts[1]) or {}
+        frontmatter = yaml.safe_load("".join(lines[1:closing])) or {}
     except yaml.YAMLError:
         return None
     description = frontmatter.get("description")
