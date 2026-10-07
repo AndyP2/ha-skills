@@ -16,8 +16,11 @@ Grader verdicts are counted as stored: `local_model_eval.grade()` already return
 the correct truth value for both `contains` and `not_contains` graders, so nothing
 is flipped.
 
-Usage: python scripts/summarise_runs.py <case> [--out evals/results] \
-     [--label baseline,post] [--model <substr>]
+Usage: python scripts/summarise_runs.py <case> [--out DIR] \
+      [--label baseline,post] [--model <substr>]
+
+DIR defaults to `evals/results`; pass the producer's own --out directory here
+(e.g. `--out evals/results/<name>`) so the summarizer finds the runs it wrote.
 """
 import glob
 import json
