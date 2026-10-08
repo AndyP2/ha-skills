@@ -50,7 +50,12 @@ def summarise(case, out, labels=None, model_filter=None):
 
     if not found:
         print(f"no runs for case {case!r} in {out}")
-        return
+        return 0
+
+    missing = [label for label in (labels or []) if label not in found]
+    if missing:
+        print("missing requested labels:", ", ".join(missing))
+        return 1
 
     def _emit(label, runs):
         run_count = len(runs)
@@ -122,8 +127,7 @@ def main() -> int:
             sys.exit(f"unknown option {key!r}; "
                      f"usage: python scripts/summarise_runs.py <case> [--out DIR] "
                      f"[--label baseline,post] [--model SUBSTR]")
-    summarise(case, results_dir, labels, model_filter)
-    return 0
+    return summarise(case, results_dir, labels, model_filter)
 
 
 if __name__ == "__main__":
