@@ -51,7 +51,7 @@ def _emit(label, runs):
     for grader_name, (pass_count, total_count) in sorted(grades.items()):
         print(f"     {grader_name}: {pass_count}/{total_count} pass = {(pass_count / total_count if total_count else 0):.3f}")
     if errors:
-        print("   ERRORS:", set(errors))
+        print("   ERRORS:", ", ".join(errors))
 
 
 def summarise(case, out, labels, model_filter) -> int:
