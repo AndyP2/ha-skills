@@ -105,11 +105,6 @@ before running an eval or testing a `description` change. Three rules hold even 
 - Cases tagged `holdout`: read their answers only to check the graders and to score, never to design a fix. Change a holdout grader only with source evidence that it is wrong.
 - After each Home Assistant release, run the cases tagged `version-pinned` and read the release post's breaking changes.
 
-`scripts/summarise_runs.py` adds up those per-run files by label: for the command above run
-`python scripts/summarise_runs.py --out evals/results/<name> --label baseline,post`, which prints
-both arms' mean score, per-grader pass rate, and reads rate (fraction of runs that loaded the skill).
-It needs only the standard library.
-
 ## Reviewing Skill PRs
 
 - Judge prose as agent-consumed context, not human docs — the Skill Authoring Principles above are the review bar (e.g. an operator→result lookup table beats narrative bullets, because agents land here holding one case to resolve)
