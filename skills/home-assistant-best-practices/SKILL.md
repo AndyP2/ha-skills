@@ -1,7 +1,7 @@
 ---
 name: home-assistant-best-practices
 description: >
-  Best practices for HA automations, helpers, scripts, and dashboards.
+  Home Assistant (HA) best practices. Load first, before answering or exploring, on any HA request.
 
   TRIGGER THIS SKILL WHEN:
   - Creating or editing automations, scripts, scenes, dashboards, blueprints
@@ -23,7 +23,7 @@ description: >
   - Existing state changed with no recovery path
   - Jinja copy-pasted between templates
 metadata:
-  version: "45"
+  version: "48"
 ---
 
 # Home Assistant Best Practices
@@ -58,7 +58,6 @@ A purpose-specific trigger takes `entity_id` in its `target:` as well, so one kn
 - `{{ states('x') | float > 25 }}` → `numeric_state` condition with `above: 25`
 - `{{ is_state('x', 'on') and is_state('y', 'on') }}` → `condition: and` with state conditions
 - `{{ now().hour >= 9 }}` → `condition: time` with `after: "09:00:00"`
-- `wait_template: "{{ is_state(...) }}"` → `wait_for_trigger` with state trigger (caveat: different behavior when state is already true — see [safe-refactoring #trigger-restructuring](references/safe-refactoring.md#trigger-restructuring))
 
 ### 2. Check for built-in helper or Template Helper
 Read [helper-selection](references/helper-selection.md) before creating a template sensor.
@@ -108,7 +107,7 @@ Read [device-control #buttonremote-patterns](references/device-control.md#button
 | Anti-pattern | Use instead | Why | Reference |
 |--------------|-------------|-----|-----------|
 | `condition: template` with `float > 25` | `condition: numeric_state` | Validated at load, not runtime | [triggers-and-conditions #native-conditions](references/triggers-and-conditions.md#native-conditions) |
-| `wait_template: "{{ is_state(...) }}"` | `wait_for_trigger` with state trigger | Event-driven, not polling; waits for *change* (see [safe-refactoring #trigger-restructuring](references/safe-refactoring.md#trigger-restructuring) for semantic differences) | [automation-actions #wait-actions](references/automation-actions.md#wait-actions) |
+| `wait_for_trigger` with a state trigger for a condition that may already hold | `wait_template` | A state trigger fires only on a transition, so the wait lasts until the entity leaves the state and re-enters it, or forever without a `timeout` (see [safe-refactoring #trigger-restructuring](references/safe-refactoring.md#trigger-restructuring)) | [automation-actions #wait-actions](references/automation-actions.md#wait-actions) |
 | `device_id` in triggers | `entity_id` (or `device_ieee` for ZHA) | device_id breaks on re-add | [device-control #entity-id-vs-device-id](references/device-control.md#entity-id-vs-device-id) |
 | `event` trigger on an integration's bus event (e.g. `hue_event`) for a button that has an `event.*` entity | `event.received` targeting that entity, with values read from its `event_types` attribute | The entity can be renamed and survives a re-add when the integration keeps a stable unique ID; bus event data differs per integration | [device-control #buttonremote-patterns](references/device-control.md#buttonremote-patterns) |
 | `numeric_state` trigger driving a costly action, unguarded | Condition rejecting `unavailable`/`unknown` in `trigger.from_state` | A restart or blip re-arms the trigger, so an unchanged value fires with no crossing (the guard also drops real crossings) | [triggers-and-conditions #unavailable-arms-a-numeric-state-trigger](references/triggers-and-conditions.md#unavailable-arms-a-numeric-state-trigger) |
@@ -156,7 +155,7 @@ Read each file whose row matches the task before you answer:
 | [device-control](references/device-control.md) | Writing actions, button/remote automations, or using target: |
 | [scenes](references/scenes.md) | Authoring or activating scenes; snapshot/restore patterns, including putting devices back the way they were after a temporary change; snapshot-vs-script distinction |
 | [dashboard-guide](references/dashboard-guide.md) | Designing or modifying Lovelace dashboards — layout, view types, strategies, sections, cards, badges, CSS styling, HACS |
-| [dashboard-cards](references/dashboard-cards.md) | Looking up available card types or fetching card-specific documentation |
+| [dashboard-cards](references/dashboard-cards.md) | Looking up built-in card types (core, energy, legacy) or where to read a card's fields |
 | [domain-docs](references/domain-docs.md) | Looking up integration/domain documentation, or the dedicated doc page for a specific trigger, condition, or action |
 | [examples.yaml](references/examples.yaml) | Need compound examples combining multiple best practices |
 | [appdaemon](references/appdaemon.md) | AppDaemon apps: when to use vs. native HA, app structure, actions, scheduling, error handling, safe refactoring impact |
