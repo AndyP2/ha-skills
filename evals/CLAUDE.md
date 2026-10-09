@@ -115,7 +115,6 @@ uv run --no-project --with pyyaml python scripts/local_model_eval.py --model <mo
 `scripts/summarise_runs.py` adds up those per-run files by label: for the command above run
 `python scripts/summarise_runs.py --out evals/results/<name> --label baseline,post`, which prints
 both arms' mean score, per-grader pass rate, and reads rate (fraction of runs that loaded the skill).
-It needs only the standard library.
 
 ha-mcp blocks writes until the call carries a key found only in the served skill (`strict_bps.py`,
 on by default), and no eval reaches that gate. So a low load rate describes questions, text
